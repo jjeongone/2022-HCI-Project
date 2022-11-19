@@ -4,13 +4,15 @@ using UnityEngine;
 
 public class AudioController : MonoBehaviour
 {
-    public AudioSource TelevisionAudio;
+    public AudioClip TelevisonAudioClip;
+    AudioSource TelevisionAudio;
     [SerializeField] private AudioClip[] clip;
     private float volumeParameter = 0.1f;
     // Start is called before the first frame update
     void Start()
     {
         TelevisionAudio = GetComponent<AudioSource>();
+        TelevisionAudio.clip = TelevisonAudioClip;
     }
 
     // Update is called once per frame
