@@ -9,7 +9,7 @@ EditorBuildSettings:
     path: Assets/Scenes/Title.unity
     guid: 7e9bae9fabad247ea960a4eb6f9aece8
   - enabled: 1
-    path: Assets/Scenes/SmartHome.unity
+    path: Assets/Scenes/SmartHome_Juyeon.unity
     guid: 9a191056915c94c3491fe6f49b212a2d
   - enabled: 1
     path: Assets/Scenes/DemoOption.unity
