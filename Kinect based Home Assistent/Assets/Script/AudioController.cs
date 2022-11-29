@@ -8,11 +8,14 @@ public class AudioController : MonoBehaviour
     AudioSource TelevisionAudio;
     [SerializeField] private AudioClip[] clip;
     private float volumeParameter = 0.1f;
+    public bool audioState;
+
     // Start is called before the first frame update
     void Start()
     {
         TelevisionAudio = GetComponent<AudioSource>();
         TelevisionAudio.clip = TelevisonAudioClip;
+        audioState = false;
     }
 
     // Update is called once per frame
@@ -24,19 +27,21 @@ public class AudioController : MonoBehaviour
     public void PlayAudio()
     {
         TelevisionAudio.Play();
-        Debug.Log("play");
+        Debug.Log("play the audio");
+        audioState = true;
     }
 
     public void PauseAudio()
     {
         TelevisionAudio.Pause();
-        Debug.Log("pause");
+        Debug.Log("pause the audio");
     }
 
     public void StopAudio()
     {
         TelevisionAudio.Stop();
-        Debug.Log("stop");
+        Debug.Log("stop the audio");
+        audioState = false;
     }
 
     public void VolumeUp()

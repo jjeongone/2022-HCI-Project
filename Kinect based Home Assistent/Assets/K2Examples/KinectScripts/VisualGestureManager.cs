@@ -79,6 +79,14 @@ public class VisualGestureManager : MonoBehaviour
 	[Tooltip("UI-Text to display the VG-manager debug messages.")]
 	public UnityEngine.UI.Text debugText;
 
+	// Event Manager
+	public GameObject eventManager;
+	private AudioController audioController;
+	private bool enable;
+	private float enableUpdateTime;
+	private float enableCoolDown;
+	private float updateTime;
+	private float coolDown;
 
 	// primary user ID, as reported by KinectManager
 	private long primaryUserID = 0;
@@ -425,6 +433,12 @@ public class VisualGestureManager : MonoBehaviour
 
 	void Start() 
 	{
+		updateTime = 0.0f;
+		coolDown = 3.0f;
+		enableUpdateTime = 0.0f;
+		enableCoolDown = 20.0f;
+		enable = false;
+		audioController = eventManager.GetComponent<AudioController>();
 		try 
 		{
 			// get sensor data
@@ -763,11 +777,55 @@ public class VisualGestureManager : MonoBehaviour
 						DiscreteGestureResult result = discreteResults[gesture];
 						VisualGestureData data = gestureData[gesture.Name];
 
-                        Debug.Log("Detected: " + gesture.Name + ", detected: " + result.Detected + ", confidence: " + result.Confidence);
+                        //Debug.Log("Detected: " + gesture.Name + ", detected: " + result.Detected + ", confidence: " + result.Confidence);
 
                         if (result.Detected && result.Confidence < 0.2f) 
 						{
+							// Detection part
+							Debug.Log("Detected: " + gesture.Name + ", detected: " + result.Detected + ", confidence: " + result.Confidence);
 							data.isStarted = true;
+
+							if(updateTime > coolDown)
+                            {
+								// update in 3frame
+								if (gesture.Name == "hand_wave")
+								{
+									Debug.Log("Hand wave has detected");
+									enable = true;
+								}
+								else if(enable)
+                                {
+									enable = false;
+									if (gesture.Name == "hand_clap")
+									{
+										Debug.Log("Hand clap has detected");
+										if (audioController.audioState == false)
+										{
+											audioController.PlayAudio(); // after the function call, state changes
+										}
+										else
+										{
+											audioController.StopAudio();
+										}
+									}
+									else if (gesture.Name == "hand_left")
+									{
+										audioController.VolumeDown();
+									}
+									else if (gesture.Name == "hand_right")
+									{
+										audioController.VolumeUp();
+									}
+								}
+								
+								if(enableUpdateTime > enableCoolDown)
+                                {
+									enableUpdateTime = 0.0f;
+									enable = false;
+                                }
+							}
+							updateTime += Time.deltaTime;
+							enableUpdateTime += Time.deltaTime;
 						}
 
                         data.userId = vgbFrameSource.IsTrackingIdValid ? (long)vgbFrameSource.TrackingId : 0;
