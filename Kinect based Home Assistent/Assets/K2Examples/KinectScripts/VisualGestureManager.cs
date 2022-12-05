@@ -22,7 +22,7 @@ public interface VisualGestureListenerInterface
 	/// <param name="gesture">Gesture name</param>
 	/// <param name="progress">Gesture progress [0..1]</param>
 	void GestureInProgress(long userId, int userIndex, string gesture, float progress);
-	
+
 	/// <summary>
 	/// Invoked when a discrete gesture is completed.
 	/// </summary>
@@ -56,7 +56,7 @@ public struct VisualGestureData
 /// <summary>
 /// Visual gesture manager is the component that manages the visual (VGB) gestures.
 /// </summary>
-public class VisualGestureManager : MonoBehaviour 
+public class VisualGestureManager : MonoBehaviour
 {
 	[Tooltip("Index of the player, tracked by this component. 0 means the 1st player, 1 - the 2nd one, 2 - the 3rd one, etc.")]
 	public int playerIndex = 0;
@@ -75,10 +75,19 @@ public class VisualGestureManager : MonoBehaviour
 
 	[Tooltip("List of the visual gesture listeners in the scene. If the list is empty, the available gesture listeners will be detected at the scene start up.")]
 	public List<MonoBehaviour> visualGestureListeners;
-	
+
 	[Tooltip("UI-Text to display the VG-manager debug messages.")]
 	public UnityEngine.UI.Text debugText;
 
+	// Event Manager
+	public GameObject TVdisplay; // TV에 해당되는 오브젝트
+	public GameObject airconditioner; // 에어컨 해당되는 오브젝트
+	private AudioController audioController;
+	private bool enable;
+	private float enableUpdateTime;
+	private float enableCoolDown;
+	private float updateTime;
+	private float coolDown;
 
 	// primary user ID, as reported by KinectManager
 	private long primaryUserID = 0;
@@ -90,34 +99,34 @@ public class VisualGestureManager : MonoBehaviour
 
 	// gesture frame source which should be tied to a body tracking ID
 	private VisualGestureBuilderFrameSource vgbFrameSource = null;
-	
+
 	// gesture frame reader which will handle gesture events
 	private VisualGestureBuilderFrameReader vgbFrameReader = null;
 
 #endif
-	
+
 	// primary sensor data structure
 	//private KinectInterop.SensorData sensorData = null;
-	
+
 	// Bool to keep track of whether visual-gesture system has been initialized
 	private bool isVisualGestureInitialized = false;
-	
+
 	// The single instance of VisualGestureManager
 	private static VisualGestureManager instance;
-	
+
 
 	/// <summary>
 	/// Gets the single VisualGestureManager instance.
 	/// </summary>
 	/// <value>The VisualGestureManager instance.</value>
 	public static VisualGestureManager Instance
-    {
-        get
-        {
-            return instance;
-        }
-    }
-	
+	{
+		get
+		{
+			return instance;
+		}
+	}
+
 	/// <summary>
 	/// Determines whether the visual-gesture manager was successfully initialized.
 	/// </summary>
@@ -126,7 +135,7 @@ public class VisualGestureManager : MonoBehaviour
 	{
 		return isVisualGestureInitialized;
 	}
-	
+
 	/// <summary>
 	/// Gets the skeleton ID of the tracked user, or 0 if no user was associated with the gestures.
 	/// </summary>
@@ -135,7 +144,7 @@ public class VisualGestureManager : MonoBehaviour
 	{
 		return primaryUserID;
 	}
-	
+
 	/// <summary>
 	/// Gets the list of detected gestures.
 	/// </summary>
@@ -144,7 +153,7 @@ public class VisualGestureManager : MonoBehaviour
 	{
 		return gestureNames;
 	}
-	
+
 	/// <summary>
 	/// Gets the count of detected gestures.
 	/// </summary>
@@ -161,14 +170,14 @@ public class VisualGestureManager : MonoBehaviour
 	/// <param name="i">The index</param>
 	public string GetGestureAtIndex(int i)
 	{
-		if(i >= 0 && i < gestureNames.Count)
+		if (i >= 0 && i < gestureNames.Count)
 		{
 			return gestureNames[i];
 		}
 
 		return string.Empty;
 	}
-	
+
 	/// <summary>
 	/// Determines whether the given gesture is in the list of detected gestures.
 	/// </summary>
@@ -178,7 +187,7 @@ public class VisualGestureManager : MonoBehaviour
 	{
 		return gestureNames.Contains(gestureName);
 	}
-	
+
 	/// <summary>
 	/// Determines whether the specified discrete gesture is completed.
 	/// </summary>
@@ -187,13 +196,13 @@ public class VisualGestureManager : MonoBehaviour
 	/// <param name="bResetOnComplete">If set to <c>true</c>, resets the gesture state.</param>
 	public bool IsGestureCompleted(string gestureName, bool bResetOnComplete)
 	{
-		if(gestureNames.Contains(gestureName))
+		if (gestureNames.Contains(gestureName))
 		{
 			VisualGestureData data = gestureData[gestureName];
-			
-			if(data.userId != 0 && data.isDiscrete && data.isComplete /**&& !data.isProcessed*/ /**&& data.confidence >= minConfidence*/)
+
+			if (data.userId != 0 && data.isDiscrete && data.isComplete /**&& !data.isProcessed*/ /**&& data.confidence >= minConfidence*/)
 			{
-				if(bResetOnComplete)
+				if (bResetOnComplete)
 				{
 					//data.isResetting = true;
 					data.isProcessed = true;
@@ -216,19 +225,19 @@ public class VisualGestureManager : MonoBehaviour
 	/// <param name="gestureName">Gesture name</param>
 	public float GetGestureConfidence(string gestureName)
 	{
-		if(gestureNames.Contains(gestureName))
+		if (gestureNames.Contains(gestureName))
 		{
 			VisualGestureData data = gestureData[gestureName];
-			
-			if(data.userId != 0 && data.isDiscrete)
+
+			if (data.userId != 0 && data.isDiscrete)
 			{
 				return data.confidence;
 			}
 		}
-		
+
 		return 0f;
 	}
-	
+
 	/// <summary>
 	/// Gets the progress of the specified continuous gesture, in range [0, 1].
 	/// </summary>
@@ -236,16 +245,16 @@ public class VisualGestureManager : MonoBehaviour
 	/// <param name="gestureName">Gesture name</param>
 	public float GetGestureProgress(string gestureName)
 	{
-		if(gestureNames.Contains(gestureName))
+		if (gestureNames.Contains(gestureName))
 		{
 			VisualGestureData data = gestureData[gestureName];
-			
-			if(data.userId != 0 && data.isContinuous)
+
+			if (data.userId != 0 && data.isContinuous)
 			{
 				return data.progress;
 			}
 		}
-		
+
 		return 0f;
 	}
 
@@ -256,7 +265,7 @@ public class VisualGestureManager : MonoBehaviour
 	/// <param name="gestureName">Gesture name.</param>
 	public bool ResetGesture(string gestureName)
 	{
-		if(gestureNames.Contains(gestureName))
+		if (gestureNames.Contains(gestureName))
 		{
 			VisualGestureData data = gestureData[gestureName];
 
@@ -276,7 +285,7 @@ public class VisualGestureManager : MonoBehaviour
 	{
 		if (!isVisualGestureInitialized)
 			return string.Empty;
-		
+
 		// create the output string
 		StringBuilder sbBuf = new StringBuilder();
 		//const char delimiter = ',';
@@ -284,11 +293,11 @@ public class VisualGestureManager : MonoBehaviour
 		sbBuf.Append("vg").Append(delimiter);
 		sbBuf.Append(gestureNames.Count).Append(delimiter);
 
-		foreach (string gestureName in gestureNames) 
+		foreach (string gestureName in gestureNames)
 		{
 			VisualGestureData data = gestureData[gestureName];
 
-			if (data.userId != 0 && data.lastTimestamp != data.timestamp) 
+			if (data.userId != 0 && data.lastTimestamp != data.timestamp)
 			{
 				sbBuf.Append(data.userId).Append(delimiter);
 				sbBuf.AppendFormat("{0:F3}", data.timestamp).Append(delimiter);
@@ -310,7 +319,7 @@ public class VisualGestureManager : MonoBehaviour
 		}
 
 		// remove the last delimiter
-		if(sbBuf.Length > 0 && sbBuf[sbBuf.Length - 1] == delimiter)
+		if (sbBuf.Length > 0 && sbBuf[sbBuf.Length - 1] == delimiter)
 		{
 			sbBuf.Remove(sbBuf.Length - 1, 1);
 		}
@@ -321,14 +330,14 @@ public class VisualGestureManager : MonoBehaviour
 	// sets gesture data arrays from a csv line
 	public bool SetGestureDataFromCsv(string sCsvLine, char[] delimiters)
 	{
-		if(sCsvLine.Length == 0)
+		if (sCsvLine.Length == 0)
 			return false;
 
 		// split the csv line in parts
 		//char[] delimiters = { ',' };
 		string[] alCsvParts = sCsvLine.Split(delimiters);
 
-		if(alCsvParts.Length < 1 || alCsvParts[0] != "vg")
+		if (alCsvParts.Length < 1 || alCsvParts[0] != "vg")
 			return false;
 
 		int iIndex = 1;
@@ -342,15 +351,15 @@ public class VisualGestureManager : MonoBehaviour
 		int.TryParse(alCsvParts[iIndex], out gestureCount);
 		iIndex++;
 
-		if (gestureCount > 0) 
+		if (gestureCount > 0)
 		{
-			for (int i = 0; i < gestureCount && iLength >= (iIndex + 1); i++) 
+			for (int i = 0; i < gestureCount && iLength >= (iIndex + 1); i++)
 			{
 				long userId = 0;
 				long.TryParse(alCsvParts[iIndex], out userId);
 				iIndex++;
 
-				if (userId != 0 && iLength >= (iIndex + 7)) 
+				if (userId != 0 && iLength >= (iIndex + 7))
 				{
 					int discrete = 0, continuous = 0, complete = 0;
 					float timestamp = 0f, confidence = 0f, progress = 0f;
@@ -366,7 +375,7 @@ public class VisualGestureManager : MonoBehaviour
 					float.TryParse(alCsvParts[iIndex + 6], out progress);
 					iIndex += 7;
 
-					if (!gestureNames.Contains(gestureName)) 
+					if (!gestureNames.Contains(gestureName))
 					{
 						gestureNames.Add(gestureName);
 
@@ -388,17 +397,17 @@ public class VisualGestureManager : MonoBehaviour
 					float prevProgress = data.progress;
 					data.progress = progress;
 
-					if(data.isDiscrete)
+					if (data.isDiscrete)
 					{
-						if(data.isProcessed && !data.isComplete)
+						if (data.isProcessed && !data.isComplete)
 						{
 							//data.isResetting = false;
 							data.isProcessed = false;
 						}
 					}
-					else if(data.isContinuous)
+					else if (data.isContinuous)
 					{
-						if(data.isProcessed && data.progress >= minProgress && ((int)data.progress != (int)prevProgress))
+						if (data.isProcessed && data.progress >= minProgress && ((int)data.progress != (int)prevProgress))
 						{
 							//data.isResetting = false;
 							data.isProcessed = false;
@@ -423,29 +432,35 @@ public class VisualGestureManager : MonoBehaviour
 
 #if (UNITY_STANDALONE_WIN)
 
-	void Start() 
+	void Start()
 	{
-		try 
+		updateTime = 0.0f;
+		coolDown = 90.0f;
+		enableUpdateTime = 0.0f;
+		enableCoolDown = 600.0f;
+		enable = false;
+		audioController = TVdisplay.GetComponent<AudioController>();
+		try
 		{
 			// get sensor data
 			KinectManager kinectManager = KinectManager.Instance;
 			KinectInterop.SensorData sensorData = kinectManager != null ? kinectManager.GetSensorData() : null;
 
-			if(sensorData == null || sensorData.sensorInterface == null)
+			if (sensorData == null || sensorData.sensorInterface == null)
 			{
 				throw new Exception("Visual gesture tracking cannot be started, because the KinectManager is missing or not initialized.");
 			}
 
-			if(sensorData.sensorInterface.GetSensorPlatform() != KinectInterop.DepthSensorPlatform.KinectSDKv2)
+			if (sensorData.sensorInterface.GetSensorPlatform() != KinectInterop.DepthSensorPlatform.KinectSDKv2)
 			{
 				throw new Exception("Visual gesture tracking is only supported by Kinect SDK v2");
 			}
 
 			// ensure the needed dlls are in place and face tracking is available for this interface
 			bool bNeedRestart = false;
-			if(IsVisualGesturesAvailable(ref bNeedRestart))
+			if (IsVisualGesturesAvailable(ref bNeedRestart))
 			{
-				if(bNeedRestart)
+				if (bNeedRestart)
 				{
 					KinectInterop.RestartLevel(gameObject, "VG");
 					return;
@@ -458,20 +473,20 @@ public class VisualGestureManager : MonoBehaviour
 
 			// initialize visual gesture tracker
 			if (!InitVisualGestures())
-	        {
+			{
 				throw new Exception("Visual gesture tracking could not be initialized.");
-	        }
-			
+			}
+
 			// try to automatically detect the available gesture listeners in the scene
-			if(visualGestureListeners.Count == 0)
+			if (visualGestureListeners.Count == 0)
 			{
 				MonoBehaviour[] monoScripts = FindObjectsOfType(typeof(MonoBehaviour)) as MonoBehaviour[];
-				
-				foreach(MonoBehaviour monoScript in monoScripts)
+
+				foreach (MonoBehaviour monoScript in monoScripts)
 				{
-//					if(typeof(VisualGestureListenerInterface).IsAssignableFrom(monoScript.GetType()) &&
-//					   monoScript.enabled)
-					if((monoScript is VisualGestureListenerInterface) && monoScript.enabled)
+					//					if(typeof(VisualGestureListenerInterface).IsAssignableFrom(monoScript.GetType()) &&
+					//					   monoScript.enabled)
+					if ((monoScript is VisualGestureListenerInterface) && monoScript.enabled)
 					{
 						visualGestureListeners.Add(monoScript);
 					}
@@ -479,24 +494,24 @@ public class VisualGestureManager : MonoBehaviour
 			}
 
 			isVisualGestureInitialized = true;
-		} 
-		catch(DllNotFoundException ex)
+		}
+		catch (DllNotFoundException ex)
 		{
 			Debug.LogError(ex.ToString());
-			if(debugText != null)
+			if (debugText != null)
 				debugText.text = "Please check the Kinect and VGB-Library installations.";
 		}
-		catch (Exception ex) 
+		catch (Exception ex)
 		{
 			Debug.LogError(ex.ToString());
-			if(debugText != null)
+			if (debugText != null)
 				debugText.text = ex.Message;
 		}
 	}
 
 	void OnDestroy()
 	{
-		if(isVisualGestureInitialized)
+		if (isVisualGestureInitialized)
 		{
 			// finish visual gesture tracking
 			FinishVisualGestures();
@@ -505,35 +520,54 @@ public class VisualGestureManager : MonoBehaviour
 		isVisualGestureInitialized = false;
 		instance = null;
 	}
-	
-	void Update() 
+
+	void Update()
 	{
-		if(isVisualGestureInitialized)
+		if(coolDown > updateTime)
+        {
+			updateTime += 1;
+        }
+		else
+        {
+			updateTime = 0;
+        }
+
+		if(enableCoolDown > enableUpdateTime)
+        {
+			enableUpdateTime += 1;
+        }else
+        {
+			enableUpdateTime = 0;
+			enable = false;
+			Debug.Log("Init the enable to default.");
+        }
+
+		if (isVisualGestureInitialized)
 		{
 			KinectManager kinectManager = KinectManager.Instance;
-			if(kinectManager && kinectManager.IsInitialized())
+			if (kinectManager && kinectManager.IsInitialized())
 			{
 				primaryUserID = kinectManager.GetUserIdByIndex(playerIndex);
 			}
 
 			// update visual gesture tracking
-			if(UpdateVisualGestures(primaryUserID))
+			if (UpdateVisualGestures(primaryUserID))
 			{
 				// process the gestures
-				foreach(string gestureName in gestureNames)
+				foreach (string gestureName in gestureNames)
 				{
-					if(gestureData.ContainsKey(gestureName))
+					if (gestureData.ContainsKey(gestureName))
 					{
 						VisualGestureData data = gestureData[gestureName];
 
-						if(data.userId != 0 && !data.isProcessed && data.isComplete /**&& data.confidence >= minConfidence*/)
+						if (data.userId != 0 && !data.isProcessed && data.isComplete /**&& data.confidence >= minConfidence*/)
 						{
 							Debug.Log(gestureName + "-gesture detected.");
 							int userIndex = kinectManager ? kinectManager.GetUserIndexById(data.userId) : -1;
 
-							foreach(VisualGestureListenerInterface listener in visualGestureListeners)
+							foreach (VisualGestureListenerInterface listener in visualGestureListeners)
 							{
-								if(listener.GestureCompleted(data.userId, userIndex, data.gestureName, data.confidence))
+								if (listener.GestureCompleted(data.userId, userIndex, data.gestureName, data.confidence))
 								{
 									//data.isResetting = true;
 									data.isProcessed = true;
@@ -543,12 +577,12 @@ public class VisualGestureManager : MonoBehaviour
 								}
 							}
 						}
-						else if(data.userId != 0 && !data.isProcessed && data.progress >= minProgress)
+						else if (data.userId != 0 && !data.isProcessed && data.progress >= minProgress)
 						{
 							//Debug.Log(gestureName + "-gesture progres: " + data.progress);
 							int userIndex = kinectManager ? kinectManager.GetUserIndexById(data.userId) : -1;
 
-							foreach(VisualGestureListenerInterface listener in visualGestureListeners)
+							foreach (VisualGestureListenerInterface listener in visualGestureListeners)
 							{
 								listener.GestureInProgress(data.userId, userIndex, data.gestureName, data.progress);
 
@@ -564,17 +598,17 @@ public class VisualGestureManager : MonoBehaviour
 
 		}
 	}
-	
+
 	private bool IsVisualGesturesAvailable(ref bool bNeedRestart)
 	{
 		bool bOneCopied = false, bAllCopied = true;
 		string sTargetPath = ".";
-		
-		if(!KinectInterop.Is64bitArchitecture())
+
+		if (!KinectInterop.Is64bitArchitecture())
 		{
 			// 32 bit
 			sTargetPath = KinectInterop.GetTargetDllPath(".", false) + "/";
-			
+
 			Dictionary<string, string> dictFilesToUnzip = new Dictionary<string, string>();
 			dictFilesToUnzip["Kinect20.VisualGestureBuilder.dll"] = sTargetPath + "Kinect20.VisualGestureBuilder.dll";
 			dictFilesToUnzip["KinectVisualGestureBuilderUnityAddin.dll"] = sTargetPath + "KinectVisualGestureBuilderUnityAddin.dll";
@@ -582,14 +616,14 @@ public class VisualGestureManager : MonoBehaviour
 			dictFilesToUnzip["vgbtechs/RFRProgressTech.dll"] = sTargetPath + "vgbtechs/RFRProgressTech.dll";
 			dictFilesToUnzip["msvcp110.dll"] = sTargetPath + "msvcp110.dll";
 			dictFilesToUnzip["msvcr110.dll"] = sTargetPath + "msvcr110.dll";
-			
+
 			KinectInterop.UnzipResourceFiles(dictFilesToUnzip, "KinectV2UnityAddin.x86.zip", ref bOneCopied, ref bAllCopied);
 		}
 		else
 		{
 			//Debug.Log("Face - x64-architecture.");
 			sTargetPath = KinectInterop.GetTargetDllPath(".", true) + "/";
-			
+
 			Dictionary<string, string> dictFilesToUnzip = new Dictionary<string, string>();
 			dictFilesToUnzip["Kinect20.VisualGestureBuilder.dll"] = sTargetPath + "Kinect20.VisualGestureBuilder.dll";
 			dictFilesToUnzip["KinectVisualGestureBuilderUnityAddin.dll"] = sTargetPath + "KinectVisualGestureBuilderUnityAddin.dll";
@@ -597,15 +631,15 @@ public class VisualGestureManager : MonoBehaviour
 			dictFilesToUnzip["vgbtechs/RFRProgressTech.dll"] = sTargetPath + "vgbtechs/RFRProgressTech.dll";
 			dictFilesToUnzip["msvcp110.dll"] = sTargetPath + "msvcp110.dll";
 			dictFilesToUnzip["msvcr110.dll"] = sTargetPath + "msvcr110.dll";
-			
+
 			KinectInterop.UnzipResourceFiles(dictFilesToUnzip, "KinectV2UnityAddin.x64.zip", ref bOneCopied, ref bAllCopied);
 		}
 
 		bNeedRestart = (bOneCopied && bAllCopied);
-		
+
 		return true;
 	}
-	
+
 	private bool InitVisualGestures()
 	{
 		KinectManager kinectManager = KinectManager.Instance;
@@ -614,23 +648,23 @@ public class VisualGestureManager : MonoBehaviour
 		Kinect2Interface kinectInterface = sensorData.sensorInterface as Kinect2Interface;
 		KinectSensor kinectSensor = kinectInterface != null ? kinectInterface.kinectSensor : null;
 
-		if(kinectSensor == null)
+		if (kinectSensor == null)
 			return false;
 
-		Debug.Log ("GestureDB: " + gestureDatabase);
+		Debug.Log("GestureDB: " + gestureDatabase);
 
-		if(gestureDatabase == string.Empty)
+		if (gestureDatabase == string.Empty)
 		{
 			Debug.LogError("Please specify gesture database file!");
 			return false;
 		}
 
 		// copy the gesture database file from Resources, if available
-		if(!File.Exists(gestureDatabase))
+		if (!File.Exists(gestureDatabase))
 		{
 			TextAsset textRes = Resources.Load(gestureDatabase, typeof(TextAsset)) as TextAsset;
-			
-			if(textRes != null && textRes.bytes.Length != 0)
+
+			if (textRes != null && textRes.bytes.Length != 0)
 			{
 				File.WriteAllBytes(gestureDatabase, textRes.bytes);
 			}
@@ -641,14 +675,14 @@ public class VisualGestureManager : MonoBehaviour
 
 		// open the reader
 		vgbFrameReader = vgbFrameSource != null ? vgbFrameSource.OpenReader() : null;
-		if(vgbFrameReader != null)
+		if (vgbFrameReader != null)
 		{
 			vgbFrameReader.IsPaused = true;
 		}
-		
+
 		using (VisualGestureBuilderDatabase database = VisualGestureBuilderDatabase.Create(gestureDatabase))
 		{
-			if(database == null)
+			if (database == null)
 			{
 				Debug.LogError("Gesture database not found: " + gestureDatabase);
 				return false;
@@ -661,18 +695,18 @@ public class VisualGestureManager : MonoBehaviour
 			{
 				bool bAddGesture = bAllGestures || gestureNames.Contains(gesture.Name);
 
-				if(bAddGesture)
+				if (bAddGesture)
 				{
 					string sGestureName = gesture.Name;
 					vgbFrameSource.AddGesture(gesture);
 
-					if(!gestureNames.Contains(sGestureName))
+					if (!gestureNames.Contains(sGestureName))
 					{
 						gestureNames.Add(sGestureName);
-						Debug.Log ("Detect gesture: " + sGestureName);
+						Debug.Log("Detect gesture: " + sGestureName);
 					}
 
-					if(!gestureData.ContainsKey(sGestureName))
+					if (!gestureData.ContainsKey(sGestureName))
 					{
 						VisualGestureData data = new VisualGestureData();
 						data.gestureName = sGestureName;
@@ -689,7 +723,7 @@ public class VisualGestureManager : MonoBehaviour
 
 		return true;
 	}
-	
+
 	private void FinishVisualGestures()
 	{
 		if (vgbFrameReader != null)
@@ -697,36 +731,36 @@ public class VisualGestureManager : MonoBehaviour
 			vgbFrameReader.Dispose();
 			vgbFrameReader = null;
 		}
-		
+
 		if (vgbFrameSource != null)
 		{
 			vgbFrameSource.Dispose();
 			vgbFrameSource = null;
 		}
 
-		if(gestureData != null)
+		if (gestureData != null)
 		{
 			gestureData.Clear();
 		}
 	}
-	
+
 	private bool UpdateVisualGestures(long userId)
 	{
-		if(vgbFrameSource == null || vgbFrameReader == null)
+		if (vgbFrameSource == null || vgbFrameReader == null)
 			return false;
 
 		bool wasPaused = vgbFrameReader.IsPaused;
 		vgbFrameSource.TrackingId = (ulong)userId;
 		vgbFrameReader.IsPaused = (userId == 0);
 
-		if(vgbFrameReader.IsPaused)
+		if (vgbFrameReader.IsPaused)
 		{
-			if(!wasPaused)
+			if (!wasPaused)
 			{
 				// clear the gesture states
 				foreach (Gesture gesture in vgbFrameSource.Gestures)
 				{
-					if(gestureData.ContainsKey(gesture.Name))
+					if (gestureData.ContainsKey(gesture.Name))
 					{
 						VisualGestureData data = gestureData[gesture.Name];
 
@@ -738,7 +772,7 @@ public class VisualGestureManager : MonoBehaviour
 						data.confidence = 0f;
 						data.progress = 0f;
 						data.timestamp = Time.realtimeSinceStartup;
-						
+
 						gestureData[gesture.Name] = data;
 					}
 				}
@@ -749,7 +783,7 @@ public class VisualGestureManager : MonoBehaviour
 
 		VisualGestureBuilderFrame frame = vgbFrameReader.CalculateAndAcquireLatestFrame();
 
-		if(frame != null)
+		if (frame != null)
 		{
 			Dictionary<Gesture, DiscreteGestureResult> discreteResults = frame.DiscreteGestureResults;
 			Dictionary<Gesture, ContinuousGestureResult> continuousResults = frame.ContinuousGestureResults;
@@ -758,26 +792,61 @@ public class VisualGestureManager : MonoBehaviour
 			{
 				foreach (Gesture gesture in discreteResults.Keys)
 				{
-                    if (gesture.GestureType == GestureType.Discrete && gestureData.ContainsKey(gesture.Name))
+					if (gesture.GestureType == GestureType.Discrete && gestureData.ContainsKey(gesture.Name))
 					{
 						DiscreteGestureResult result = discreteResults[gesture];
 						VisualGestureData data = gestureData[gesture.Name];
 
-                        Debug.Log("Detected: " + gesture.Name + ", detected: " + result.Detected + ", confidence: " + result.Confidence);
+						//Debug.Log("Detected: " + gesture.Name + ", detected: " + result.Detected + ", confidence: " + result.Confidence);
 
-                        if (result.Detected && result.Confidence < 0.2f) 
+						if (result.Detected && result.Confidence < 0.1f)
 						{
+							// Detection part
 							data.isStarted = true;
+
+							Debug.Log("Detected: " + gesture.Name + ", detected: " + result.Detected + ", confidence: " + result.Confidence);
+
+							if (!enable && gesture.Name == "hand_wave")
+							{
+								Debug.Log("Hand wave has detected");
+								enable = true;
+							}
+
+							if (enable )
+							{
+								if (gesture.Name == "hand_clap")
+								{
+									Debug.Log("Hand clap has detected");
+
+									if (audioController.audioState == false)
+									{
+										audioController.PlayAudio(); // after the function call, state changes
+									}
+									else
+									{
+										Invoke("Stop wait for 2sec", 2f);
+										audioController.StopAudio();
+									}
+								}
+								else if (gesture.Name == "hand_left")
+								{
+									audioController.VolumeDown();
+								}
+								else if (gesture.Name == "hand_right")
+								{
+									audioController.VolumeUp();
+								}
+							}
 						}
 
-                        data.userId = vgbFrameSource.IsTrackingIdValid ? (long)vgbFrameSource.TrackingId : 0;
+						data.userId = vgbFrameSource.IsTrackingIdValid ? (long)vgbFrameSource.TrackingId : 0;
 						data.isComplete = data.isStarted && result.Detected && (result.Confidence >= minConfidence);
 						data.confidence = result.Confidence;
 						data.timestamp = Time.realtimeSinceStartup;
 
 						//Debug.Log(string.Format ("{0} - {1}, confidence: {2:F0}%", data.gestureName, result.Detected ? "Detected" : "NotDetected", result.Confidence * 100f));
 
-						if(data.isProcessed && !data.isComplete)
+						if (data.isProcessed && !data.isComplete)
 						{
 							//data.isResetting = false;
 							data.isProcessed = false;
@@ -792,19 +861,19 @@ public class VisualGestureManager : MonoBehaviour
 			{
 				foreach (Gesture gesture in continuousResults.Keys)
 				{
-					if(gesture.GestureType == GestureType.Continuous && gestureData.ContainsKey(gesture.Name))
+					if (gesture.GestureType == GestureType.Continuous && gestureData.ContainsKey(gesture.Name))
 					{
 						ContinuousGestureResult result = continuousResults[gesture];
 						VisualGestureData data = gestureData[gesture.Name];
 
-                        //Debug.Log("Detected: " + gesture.Name + ", progress: " + result.Progress);
+						//Debug.Log("Detected: " + gesture.Name + ", progress: " + result.Progress);
 
-                        data.userId = vgbFrameSource.IsTrackingIdValid ? (long)vgbFrameSource.TrackingId : 0;
+						data.userId = vgbFrameSource.IsTrackingIdValid ? (long)vgbFrameSource.TrackingId : 0;
 						float prevProgress = data.progress;
 						data.progress = result.Progress;
 						data.timestamp = Time.realtimeSinceStartup;
 
-                        if (data.isProcessed && data.progress >= minProgress && ((int)(data.progress * 100f) != (int)(prevProgress * 100f)))
+						if (data.isProcessed && data.progress >= minProgress && ((int)(data.progress * 100f) != (int)(prevProgress * 100f)))
 						{
 							//data.isResetting = false;
 							data.isProcessed = false;
@@ -814,13 +883,13 @@ public class VisualGestureManager : MonoBehaviour
 					}
 				}
 			}
-			
+
 			frame.Dispose();
 			frame = null;
 		}
 
 		return true;
 	}
-	
+
 	#endif
 }

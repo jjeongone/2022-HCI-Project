@@ -8,11 +8,17 @@ public class AudioController : MonoBehaviour
     AudioSource TelevisionAudio;
     [SerializeField] private AudioClip[] clip;
     private float volumeParameter = 0.1f;
+    public bool audioState;
+
     // Start is called before the first frame update
     void Start()
     {
         TelevisionAudio = GetComponent<AudioSource>();
+<<<<<<< Updated upstream
         TelevisionAudio.clip = TelevisonAudioClip;
+=======
+        audioState = false;
+>>>>>>> Stashed changes
     }
 
     // Update is called once per frame
@@ -24,6 +30,8 @@ public class AudioController : MonoBehaviour
     public void PlayAudio()
     {
         TelevisionAudio.Play();
+        Invoke("Play wait for 4sec", 4f);
+        audioState = true;
         Debug.Log("play");
     }
 
@@ -36,6 +44,7 @@ public class AudioController : MonoBehaviour
     public void StopAudio()
     {
         TelevisionAudio.Stop();
+        audioState = false;
         Debug.Log("stop");
     }
 
