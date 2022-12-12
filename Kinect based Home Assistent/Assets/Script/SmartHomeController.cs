@@ -7,19 +7,26 @@ public class SmartHomeController : MonoBehaviour
     public static bool activated = false;
 
     public GameObject SmartPhone;
+    public GameObject Player;
 
-    public void OnClickSmartHomeController()
+    int distance = 300;
+
+    void Update()
     {
-        activated = !activated;
-        Debug.Log("Open smart phone application");
-
-        if(activated)
+        // if (OVRInput.GetDown(OVRInput.RawButton.A)) 
+        if (Input.GetKeyDown(KeyCode.Space))
         {
-            SmartPhone.SetActive(true);
-        }
-        else
-        {
-            SmartPhone.SetActive(false);
+            activated = !activated;
+            Debug.Log("Open smart phone application");
+            if (activated)
+            {
+                SmartPhone.SetActive(true);
+                SmartPhone.transform.position = Player.transform.position + Player.transform.forward * distance;
+            }
+            else
+            {
+                SmartPhone.SetActive(false);
+            }
         }
     }
 }
